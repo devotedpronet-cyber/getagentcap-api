@@ -1,0 +1,105 @@
+openapi: 3.1.0
+info:
+  title: GetAgentCap Ledger API
+  version: "1.0.0"
+  description: >
+    Read-only export of your agents' on-chain USDC payments (Base and Solana),
+    attributed per agent. Generate a key in the dashboard under Settings → API keys.
+  contact:
+    url: https://getagentcap.com
+servers:
+  - url: https://getagentcap.com/api/v1
+paths:
+  /ledger:
+    get:
+      operationId: getLedger
+      summary: List payments for the authenticated account
+      security:
+        - apiKey: []
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 50
+          description: Max rows to return.
+        - name: since
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: ISO 8601 timestamp; only payments occurring at or after this time.
+        - name: agent_id
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filter to a single agent's payments.
+      responses:
+        "200":
+          description: Payments matching the filters, newest first.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  payments:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Payment"
+                required: [payments]
+        "401":
+          description: Missing or invalid API key.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Query failed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+components:
+  securitySchemes:
+    apiKey:
+      type: http
+      scheme: bearer
+      description: Bearer token — the API key shown once at creation time in the dashboard.
+  schemas:
+    Payment:
+      type: object
+      properties:
+        tx_hash:
+          type: string
+        amount_usdc:
+          type: string
+          description: Decimal string, USDC.
+        status:
+          type: string
+        occurred_at:
+          type: string
+          format: date-time
+        agent_id:
+          type: string
+        agents:
+          type: object
+          properties:
+            name:
+              type: string
+            wallet_address:
+              type: string
+            network:
+              type: string
+              enum: [base, solana]
+      required: [tx_hash, amount_usdc, status, occurred_at, agent_id]
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+      required: [error]
