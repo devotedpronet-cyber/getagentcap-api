@@ -1,0 +1,33 @@
+name: Validate OpenAPI spec
+
+on:
+  push:
+    paths: ["openapi.yaml"]
+  pull_request:
+    paths: ["openapi.yaml"]
+
+jobs:
+  lint-and-mock:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Lint spec (spectral)
+        run: npx --yes @stoplight/spectral-cli lint openapi.yaml
+
+      - name: Boot Prism mock server
+        run: |
+          npx --yes @stoplight/prism-cli mock openapi.yaml --port 4010 &
+          npx --yes wait-on http://127.0.0.1:4010 --timeout 30000
+
+      - name: Hit mocked /ledger
+        run: |
+          status=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Authorization: Bearer test-key" \
+            "http://127.0.0.1:4010/ledger")
+          echo "status=$status"
+          test "$status" -eq 200
